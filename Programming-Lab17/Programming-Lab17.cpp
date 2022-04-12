@@ -4,16 +4,16 @@
 #include "point.h"
 
 float left;
-float right;
-float top;
 float bottom;
+float width;
+float height;
 
 const size_t points_count = 2000;
 point points[points_count];
 
 float f(float x)
 {
-	return abs(sin(x)) + cos(x);
+	return abs(sin(x)) + cos(abs(x));
 }
 
 void initPoints()
@@ -22,7 +22,7 @@ void initPoints()
 	float min = FLT_MAX;
 
 	float x = left;
-	float dx = (right - left) / points_count;
+	float dx = width / points_count;
 	for (size_t i = 0; i < points_count; ++i, x += dx)
 	{
 		float y = f(x);
@@ -40,14 +40,17 @@ void initPoints()
 		points[i].y = y;
 	}
 
-	top = max;
 	bottom = min;
+	height = max - min;
 }
 
 const float unit_line_scale = 0.015F;
 
 void plot()
 {
+	float right = left + width;
+	float top = bottom + height;
+
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	glMatrixMode(GL_PROJECTION);
@@ -68,20 +71,26 @@ void plot()
 
 	//draw x-axis unit lines
 	float unit_y_pos = bottom > 0 ? bottom : top < 0 ? top : 0;
-	float unit_x_height = (top - bottom) * unit_line_scale;
-	for (int i = ceil(left); i <= floor(right); ++i)
+	float unit_x_height = height * unit_line_scale;
+	float unit_bottom = unit_y_pos - unit_x_height;
+	float unit_top = unit_y_pos + unit_x_height;
+	int right_unit = floor(right);
+	for (int i = ceil(left); i <= right_unit; ++i)
 	{
-		glVertex2f(i, unit_y_pos - unit_x_height);
-		glVertex2f(i, unit_y_pos + unit_x_height);
+		glVertex2f(i, unit_bottom);
+		glVertex2f(i, unit_top);
 	}
 
 	//draw y-axis unit lines
 	float unit_x_pos = left > 0 ? left : right < 0 ? right : 0;
-	float unit_y_width = (right - left) * unit_line_scale;
-	for (int i = ceil(bottom); i <= floor(top); ++i)
+	float unit_y_width = width * unit_line_scale;
+	float unit_left = unit_x_pos - unit_y_width;
+	float unit_right = unit_x_pos + unit_y_width;
+	int top_unit = floor(top);
+	for (int i = ceil(bottom); i <= top_unit; ++i)
 	{
-		glVertex2f(unit_x_pos - unit_y_width, i);
-		glVertex2f(unit_x_pos + unit_y_width, i);
+		glVertex2f(unit_left, i);
+		glVertex2f(unit_right, i);
 	}
 
 	glEnd();
@@ -93,7 +102,6 @@ void plot()
 	glDrawArrays(GL_LINE_STRIP, 0, points_count);
 	glDisableClientState(GL_VERTEX_ARRAY);
 
-	glFlush();
 	glutSwapBuffers();
 }
 
@@ -101,27 +109,25 @@ const float move_speed_scale = 0.01F;
 
 void move(int key, int x, int y)
 {
-	float step_x = (right - left) * move_speed_scale;
-	float step_y = (top - bottom) * move_speed_scale;
+	float step_x = width * move_speed_scale;
+	float step_y = height * move_speed_scale;
+
 	switch (key)
 	{
 	case GLUT_KEY_LEFT:
 		left -= step_x;
-		right -= step_x;
 		break;
 	case GLUT_KEY_RIGHT:
 		left += step_x;
-		right += step_x;
 		break;
 	case GLUT_KEY_DOWN:
-		top -= step_y;
 		bottom -= step_y;
 		break;
 	case GLUT_KEY_UP:
-		top += step_y;
 		bottom += step_y;
 		break;
 	}
+
 	glutPostRedisplay();
 }
 
@@ -144,23 +150,18 @@ void zoom(unsigned char key, int x, int y)
 		return;
 	}
 
-	float half_width = (right - left) / 2.0F;
-	float half_height = (top - bottom) / 2.0F;
-	float offset_x = left + half_width;
-	float offset_y = bottom + half_height;
-	float new_half_width = half_width * zoom_scale;
-	float new_half_height = half_height * zoom_scale;
-
-	left = offset_x - new_half_width;
-	right = offset_x + new_half_width;
-	top = offset_y + new_half_height;
-	bottom = offset_y - new_half_height;
+	float zoom_constant = (1.0F - zoom_scale) / 2.0F;
+	left += width * zoom_constant;
+	bottom += height * zoom_constant;
+	width *= zoom_scale;
+	height *= zoom_scale;
 
 	glutPostRedisplay();
 }
 
 int main(int argc, char** argv)
 {
+	float right;
 	do
 	{
 		std::cout << "Enter left bound: ";
@@ -171,9 +172,10 @@ int main(int argc, char** argv)
 
 		std::cout << '\n';
 	} while (right <= left);
+	width = right - left;
 
 	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
+	glutInitDisplayMode(GLUT_DOUBLE);
 
 	glutInitWindowSize(600, 600);
 	glutCreateWindow("Графік");
