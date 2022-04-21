@@ -1,26 +1,22 @@
 ﻿#include <iostream>
 #include <GL/glut.h>
 
-#include "point.h"
-
 float left;
 float bottom;
 float width;
 float height;
-
-const size_t points_count = 2000;
-point points[points_count];
 
 float f(float x)
 {
 	return abs(sin(x)) + cos(abs(x));
 }
 
-void initPoints()
+void setScale()
 {
 	float max = -FLT_MAX;
 	float min = FLT_MAX;
 
+	size_t points_count = glutGet(GLUT_WINDOW_WIDTH);
 	float x = left;
 	float dx = width / points_count;
 	for (size_t i = 0; i < points_count; ++i, x += dx)
@@ -35,13 +31,26 @@ void initPoints()
 		{
 			max = y;
 		}
-
-		points[i].x = x;
-		points[i].y = y;
 	}
 
 	bottom = min;
 	height = max - min;
+}
+
+void drawGraph()
+{
+	glBegin(GL_LINE_STRIP);
+	glColor3f(255, 0, 0);
+
+	size_t points_count = glutGet(GLUT_WINDOW_WIDTH);
+	float x = left;
+	float dx = width / points_count;
+	for (size_t i = 0; i < points_count; ++i, x += dx)
+	{
+		glVertex2f(x, f(x));
+	}
+
+	glEnd();
 }
 
 const float unit_line_scale = 0.015F;
@@ -71,9 +80,9 @@ void plot()
 
 	//draw x-axis unit lines
 	float unit_y_pos = bottom > 0 ? bottom : top < 0 ? top : 0;
-	float unit_x_height = height * unit_line_scale;
-	float unit_bottom = unit_y_pos - unit_x_height;
-	float unit_top = unit_y_pos + unit_x_height;
+	float unit_height = height * unit_line_scale;
+	float unit_bottom = unit_y_pos - unit_height;
+	float unit_top = unit_y_pos + unit_height;
 	int right_unit = floor(right);
 	for (int i = ceil(left); i <= right_unit; ++i)
 	{
@@ -83,9 +92,9 @@ void plot()
 
 	//draw y-axis unit lines
 	float unit_x_pos = left > 0 ? left : right < 0 ? right : 0;
-	float unit_y_width = width * unit_line_scale;
-	float unit_left = unit_x_pos - unit_y_width;
-	float unit_right = unit_x_pos + unit_y_width;
+	float unit_width = width * unit_line_scale;
+	float unit_left = unit_x_pos - unit_width;
+	float unit_right = unit_x_pos + unit_width;
 	int top_unit = floor(top);
 	for (int i = ceil(bottom); i <= top_unit; ++i)
 	{
@@ -95,12 +104,7 @@ void plot()
 
 	glEnd();
 
-	//draw graph
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glColor3f(255, 0, 0);
-	glVertexPointer(2, GL_FLOAT, sizeof(point), points);
-	glDrawArrays(GL_LINE_STRIP, 0, points_count);
-	glDisableClientState(GL_VERTEX_ARRAY);
+	drawGraph();
 
 	glutSwapBuffers();
 }
@@ -126,6 +130,8 @@ void move(int key, int x, int y)
 	case GLUT_KEY_UP:
 		bottom += step_y;
 		break;
+	default:
+		return;
 	}
 
 	glutPostRedisplay();
@@ -134,27 +140,28 @@ void move(int key, int x, int y)
 const float zoom_in_scale = 0.9F;
 const float zoom_out_scale = 1.1F;
 
+void zoom(float scale)
+{
+	float zoom_constant = (1.0F - scale) / 2.0F;
+	left += width * zoom_constant;
+	bottom += height * zoom_constant;
+	width *= scale;
+	height *= scale;
+}
+
 void zoom(unsigned char key, int x, int y)
 {
-	float zoom_scale;
-
 	switch (key)
 	{
 	case '+':
-		zoom_scale = zoom_in_scale;
+		zoom(zoom_in_scale);
 		break;
 	case '-':
-		zoom_scale = zoom_out_scale;
+		zoom(zoom_out_scale);
 		break;
 	default:
 		return;
 	}
-
-	float zoom_constant = (1.0F - zoom_scale) / 2.0F;
-	left += width * zoom_constant;
-	bottom += height * zoom_constant;
-	width *= zoom_scale;
-	height *= zoom_scale;
 
 	glutPostRedisplay();
 }
@@ -184,7 +191,7 @@ int main(int argc, char** argv)
 	glutSpecialFunc(move);
 	glutKeyboardFunc(zoom);
 
-	initPoints();
+	setScale();
 
 	glutMainLoop();
 	return 0;
